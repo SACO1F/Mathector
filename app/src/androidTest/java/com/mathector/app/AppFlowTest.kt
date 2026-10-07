@@ -50,7 +50,7 @@ class AppFlowTest {
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
             compose.waitForIdle()
             screenSnapshot("paper-settings-0.7.0.png")
-            compose.onNodeWithTag("collection-detail").performScrollToNode(hasContentDescription("返回"))
+            compose.onNodeWithContentDescription("返回").assertIsDisplayed()
             compose.onNodeWithContentDescription("返回").performClick()
             compose.onNodeWithText(collection.title).performClick()
             compose.onNodeWithTag("collection-detail").performScrollToNode(hasTestTag("paper-settings"))

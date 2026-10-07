@@ -79,7 +79,7 @@ class CollectionGlassTest {
     @Test fun listReachesTheBottomWhileGlassAddStaysFixedAndFinalExportsRemainVisible() {
         val questions = (1..18).map { index -> Question(title = "函数与图像练习 $index", body = "已知函数 \\(f(x)=x^2+$index\\)，求 \\(f(2)\\) 的值，并说明图像的变化。",
             grade = listOf("高一", "高二", "高三")[index % 3], knowledge = "函数的概念与性质、函数单调性", difficulty = "进阶", reviewed = true) }
-        val collection = QuestionCollection(title = "高中数学练习", paperTitle = "高中数学阶段练习", examInstructions = "请写出完整计算过程。", examMinutes = 90, totalScore = 100)
+        val collection = QuestionCollection(title = "高中数学函数与导数阶段复习、错题整理和综合练习", paperTitle = "高中数学阶段练习", examInstructions = "请写出完整计算过程。", examMinutes = 90, totalScore = 100)
         val original = app.settings.state.value.theme
         runBlocking { questions.forEach { dao.save(it) }; dao.save(collection); dao.addQuestions(collection.id, questions.map { it.id }) }
         try {
@@ -89,6 +89,14 @@ class CollectionGlassTest {
                 val dark = theme == ThemeMode.DARK
                 val label = if(dark) "dark" else "light"
                 app.settings.setTheme(theme)
+                compose.onNodeWithTag("collection-detail").performScrollToIndex(0)
+                compose.onNodeWithTag("collection-header").assertIsDisplayed()
+                compose.onNodeWithContentDescription("返回").assertIsDisplayed()
+                val header = bounds("collection-header")
+                val back = compose.onNodeWithContentDescription("返回").fetchSemanticsNode().boundsInRoot
+                assertEquals("The header stays at the page top", bounds("collection-screen").top, header.top, 1f)
+                assertTrue("The scrolling list starts below the fixed header", bounds("collection-detail").top >= header.bottom)
+                snapshot("collection-fixed-header-start-$label-0.18.0.png", dark)
                 compose.onNodeWithTag("collection-add-floating").assertHeightIsEqualTo(52.dp)
                 assertEquals("The list has no fixed bottom strip", bounds("collection-screen").bottom, bounds("collection-detail").bottom, 1f)
                 val button = bounds("collection-add-floating")
@@ -99,19 +107,28 @@ class CollectionGlassTest {
                     if(Build.VERSION.SDK_INT >= 29) assertFalse("System navigation has no contrast block", compose.activity.window.isNavigationBarContrastEnforced)
                 }
                 compose.onNodeWithTag("collection-detail").performScrollToIndex(4)
-                snapshot("collection-glass-scrolling-$label-0.17.0.png", dark)
+                snapshot("collection-glass-scrolling-$label-0.18.0.png", dark)
+                assertEquals("Scrolling keeps the header fixed", header, bounds("collection-header"))
+                compose.onNodeWithContentDescription("返回").assertIsDisplayed()
+                assertEquals(back, compose.onNodeWithContentDescription("返回").fetchSemanticsNode().boundsInRoot)
                 assertEquals("The add button remains fixed while scrolling", button, bounds("collection-add-floating"))
-                compose.onNodeWithTag("collection-detail").performScrollToIndex(questions.size + 2)
+                compose.onNodeWithTag("collection-detail").performScrollToIndex(questions.size + 1)
+                repeat(2) { compose.onNodeWithTag("collection-detail").performTouchInput { swipeUp() } }
+                compose.onNodeWithTag("collection-header").assertIsDisplayed()
+                assertEquals("The header stays fixed at the list bottom", header, bounds("collection-header"))
+                compose.onNodeWithContentDescription("返回").assertIsDisplayed()
                 compose.onNodeWithTag("export-pdf").assertIsDisplayed()
                 compose.onNodeWithTag("export-word").assertIsDisplayed()
                 assertTrue("The final export row is clear of the floating button", bounds("export-word").bottom < bounds("collection-add-floating").top)
-                snapshot("collection-glass-bottom-$label-0.17.0.png", dark)
+                snapshot("collection-glass-bottom-$label-0.18.0.png", dark)
             }
             compose.onNodeWithTag("collection-add-floating").performClick()
             compose.onNodeWithTag("question-picker").assertExists()
             compose.onNodeWithTag("picker-close").performClick()
             compose.waitUntil(5000) { compose.onAllNodesWithTag("question-picker").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithTag("collection-screen").assertExists()
+            compose.onNodeWithContentDescription("返回").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("collections-list").assertIsDisplayed()
         } finally { app.settings.setTheme(original); runBlocking { dao.deleteCollection(collection.id); questions.forEach { dao.deleteQuestion(it.id) } } }
     }
 
@@ -127,7 +144,7 @@ class CollectionGlassTest {
                     compose.onNodeWithTag("main-add-floating").assertWidthIsEqualTo(50.dp).assertHeightIsEqualTo(50.dp).assertHasClickAction()
                     if(tab == "library") {
                         compose.onNodeWithTag("library-list").performScrollToIndex(3)
-                        snapshot("main-glass-plus-${if(theme == ThemeMode.DARK) "dark" else "light"}-0.17.0.png", theme == ThemeMode.DARK)
+                        snapshot("main-glass-plus-${if(theme == ThemeMode.DARK) "dark" else "light"}-0.18.0.png", theme == ThemeMode.DARK)
                     }
                     compose.onNodeWithContentDescription("添加题目").performClick()
                     compose.onNodeWithText("收录一道好题").assertIsDisplayed()
@@ -171,7 +188,7 @@ class CollectionGlassTest {
                     compose.onNodeWithTag("picker-menu-$id").assertDoesNotExist()
                     compose.onNodeWithTag("picker-filter-$id").performClick()
                     compose.onNodeWithTag("picker-option-$id-$value").performScrollTo().assertIsSelected()
-                    snapshot("picker-rounded-$id-${if(theme == ThemeMode.DARK) "dark" else "light"}-0.17.0.png", theme == ThemeMode.DARK)
+                    snapshot("picker-rounded-$id-${if(theme == ThemeMode.DARK) "dark" else "light"}-0.18.0.png", theme == ThemeMode.DARK)
                     assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
                     compose.waitUntil(5_000) { compose.onAllNodesWithTag("picker-menu-$id").fetchSemanticsNodes().isEmpty() }
                     compose.onNodeWithTag("question-picker").assertExists()

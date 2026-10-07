@@ -300,10 +300,7 @@ private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Bool
             Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Blue), contentAlignment = Alignment.Center) { Text("√", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp) }; Spacer(Modifier.width(10.dp)); Text("Mathector", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
             Spacer(Modifier.weight(1f)); Text("数学题集", color = Muted, fontSize = 12.sp)
         } }
-        item { Column(Modifier.padding(top = 10.dp, bottom = 4.dp)) {
-            Text("每一道好题，\n都有自己的位置。", fontSize = 30.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.6).sp)
-            Spacer(Modifier.height(10.dp)); Text("收录 · 整理 · 再练一次", color = Muted, fontSize = 14.sp)
-        } }
+        item { Text("收录 · 整理 · 再练一次", color = Muted, fontSize = 14.sp) }
         item { Row(Modifier.fillMaxWidth().clip(CardShape).background(Brush.linearGradient(listOf(Blue, Color(0xFF4D85EF)))).padding(22.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Stat("${questions.size}", "收录题目"); Stat("${questions.count { !it.reviewed }}", "待校对"); Stat("${questions.count { it.favorite }}", "收藏")
         } }
@@ -412,16 +409,21 @@ private fun CollectionDetail(collection: QuestionCollection, ordered: List<Quest
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val dark = MaterialTheme.colorScheme.background.luminance() < .5f
     Box(Modifier.fillMaxSize().testTag("collection-screen")) {
-        LazyColumn(Modifier.fillMaxSize().hazeSource(buttonHaze).testTag("collection-detail"),
-            contentPadding = PaddingValues(22.dp, 12.dp, 22.dp, 92.dp + bottomInset), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item { PageHeader(collection.title, onBack) }
-            item { Text("${ordered.size} 道题 · 调整顺序后生成练习文档", color = Muted) }
-            itemsIndexed(ordered, key = { _, q -> q.id }) { index, q ->
-                QuestionSummaryCard(q, "collection", onClick = { onEdit(q) }, trailing = {
-                    CollectionQuestionMenu(q.id, index, ordered.size, onMove, onRemove)
-                })
+        Column(Modifier.fillMaxSize()) {
+            Surface(Modifier.fillMaxWidth().testTag("collection-header"), color = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.onSurface) {
+                PageHeader(collection.title, onBack, Modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp, bottom = 8.dp))
             }
-            item { PaperSettingsEditor(collection, exporting, ordered.isNotEmpty(), onPaperChange, onExport) }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().hazeSource(buttonHaze).testTag("collection-detail"),
+                contentPadding = PaddingValues(22.dp, 12.dp, 22.dp, 92.dp + bottomInset), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                item { Text("${ordered.size} 道题 · 调整顺序后生成练习文档", color = Muted) }
+                itemsIndexed(ordered, key = { _, q -> q.id }) { index, q ->
+                    QuestionSummaryCard(q, "collection", onClick = { onEdit(q) }, trailing = {
+                        CollectionQuestionMenu(q.id, index, ordered.size, onMove, onRemove)
+                    })
+                }
+                item { PaperSettingsEditor(collection, exporting, ordered.isNotEmpty(), onPaperChange, onExport) }
+            }
         }
         FloatingAddQuestionButton(buttonHaze, dark, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 22.dp, bottom = 16.dp)) { choosing = true }
     }
@@ -534,4 +536,4 @@ private fun QuestionEditor(question: Question, dark: Boolean, solutionState: and
     if(confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("删除这道题？") }, text = { Text("题目会从题库和相关题集中移除。") }, confirmButton = { TextButton(onClick = onDelete) { Text("删除") } }, dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } })
 }
 
-@Composable private fun PageHeader(title: String, onBack: () -> Unit) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "返回") }; Text(title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2) } }
+@Composable private fun PageHeader(title: String, onBack: () -> Unit, modifier: Modifier = Modifier) { Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "返回") }; Text(title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis) } }

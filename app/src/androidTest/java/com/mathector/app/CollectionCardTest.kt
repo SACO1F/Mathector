@@ -95,7 +95,7 @@ class CollectionCardTest {
             compose.onNodeWithTag("collection-math-${q.id}", useUnmergedTree = true).assertContentDescriptionEquals(MathContent.preview(q))
             runBlocking { dao.addQuestions(collection.id, extra.map { it.id }) }
             compose.waitUntil(5000) { runBlocking { dao.orderedItems(collection.id).size == 9 } }
-            snapshot("collection-cards-light-0.9.0.png")
+            snapshot("collection-cards-light-0.18.0.png")
             val floatingBefore = bounds("collection-add-floating")
             val screen = bounds("collection-screen")
             assertTrue("The add action belongs at the bottom right", floatingBefore.center.x > screen.center.x && floatingBefore.center.y > screen.center.y)
@@ -125,14 +125,15 @@ class CollectionCardTest {
             assertEquals(floatingBefore.left, floatingAfter.left, 1f)
             compose.onNodeWithTag("export-word").assertIsDisplayed().assertIsEnabled()
             assertTrue("Bottom content has clearance above the floating action", bounds("export-word").bottom < floatingAfter.top)
-            snapshot("collection-bottom-light-0.9.0.png")
+            snapshot("collection-bottom-light-0.18.0.png")
             compose.onNodeWithTag("collection-add-floating").performClick()
             compose.onNodeWithTag("question-picker").assertIsDisplayed()
             compose.onNodeWithContentDescription("关闭选题").performClick()
-            compose.onNodeWithTag("collection-detail").performScrollToNode(hasContentDescription("返回"))
+            compose.onNodeWithTag("collection-detail").performScrollToIndex(0)
+            compose.onNodeWithContentDescription("返回").assertIsDisplayed()
             app.settings.setTheme(ThemeMode.DARK)
             compose.waitUntil(5000) { app.settings.state.value.theme == ThemeMode.DARK }
-            snapshot("collection-cards-dark-0.9.0.png", dark = true)
+            snapshot("collection-cards-dark-0.18.0.png", dark = true)
             compose.onNodeWithTag("collection-add-floating").assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription("关闭选题").performClick()
         } finally {
