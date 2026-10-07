@@ -10,8 +10,8 @@ android {
         applicationId = "com.mathector.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "0.18.0"
+        versionCode = 19
+        versionName = "0.19.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }

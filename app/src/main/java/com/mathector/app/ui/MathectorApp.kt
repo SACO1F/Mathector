@@ -375,28 +375,60 @@ private fun LibraryQuestionMenu(question: Question, onFavorite: () -> Unit, onAd
 private fun CollectionsScreen(collections: List<QuestionCollection>, items: List<CollectionItem>, exportingId: String?, onOpen: (String) -> Unit,
     onCreate: () -> Unit, onDelete: (String) -> Unit, onExport: (QuestionCollection, Boolean) -> Unit) {
     var deleteId by remember { mutableStateOf<String?>(null) }
-    LazyColumn(Modifier.fillMaxSize().testTag("collections-list"), contentPadding = PaddingValues(22.dp, 20.dp, 22.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("我的题集", fontSize = 30.sp, fontWeight = FontWeight.Bold); Text("把知识连起来，把好题留在一起", color = Muted, fontSize = 13.sp) }; IconButton(onClick = onCreate) { Icon(Icons.Rounded.CreateNewFolder, "创建题集") } } }
-        if(collections.isEmpty()) item { EmptyCard("给练习一个主题", "创建错题集、章节练习或复习试卷", "创建题集", onCreate) }
-        items(collections, key = { it.id }) { collection -> Surface(onClick = { onOpen(collection.id) }, modifier = Modifier.testTag("collection-card-${collection.id}"), shape = CardShape, color = MaterialTheme.colorScheme.surface) {
-            val count = items.count { it.collectionId == collection.id }
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.FolderOpen, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(collection.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("$count 道题", Modifier.testTag("collection-description-${collection.id}"), fontSize = 12.sp, color = Muted)
+    Column(Modifier.fillMaxSize().testTag("collections-screen")) {
+        Surface(Modifier.fillMaxWidth().testTag("collections-header"), color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onSurface) {
+            Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 20.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("我的题集", Modifier.testTag("collections-title"), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text("把知识连起来，把好题留在一起", Modifier.testTag("collections-subtitle"),
+                        color = Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                CollectionExportMenu(collection.id, count > 0 && exportingId == null, exportingId == collection.id) { onExport(collection, it) }
-                Spacer(Modifier.width(6.dp))
-                CollectionActionButton("删除", "删除题集", Icons.Rounded.DeleteOutline,
-                    Modifier.testTag("collection-delete-${collection.id}"), enabled = exportingId != collection.id) { deleteId = collection.id }
+                CreateCollectionButton(onCreate)
             }
-        } }
+        }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("collections-list"), contentPadding = PaddingValues(22.dp, 8.dp, 22.dp, 100.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if(collections.isEmpty()) item { EmptyCard("给练习一个主题", "创建错题集、章节练习或复习试卷", "创建题集", onCreate) }
+            items(collections, key = { it.id }) { collection -> Surface(onClick = { onOpen(collection.id) }, modifier = Modifier.testTag("collection-card-${collection.id}"), shape = CardShape, color = MaterialTheme.colorScheme.surface) {
+                val count = items.count { it.collectionId == collection.id }
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.FolderOpen, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(collection.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("$count 道题", Modifier.testTag("collection-description-${collection.id}"), fontSize = 12.sp, color = Muted)
+                    }
+                    CollectionExportMenu(collection.id, count > 0 && exportingId == null, exportingId == collection.id) { onExport(collection, it) }
+                    Spacer(Modifier.width(6.dp))
+                    CollectionActionButton("删除", "删除题集", Icons.Rounded.DeleteOutline,
+                        Modifier.testTag("collection-delete-${collection.id}"), enabled = exportingId != collection.id) { deleteId = collection.id }
+                }
+            } }
+        }
     }
     deleteId?.let { id ->
         collections.firstOrNull { it.id == id }?.let { collection ->
             DeleteCollectionDialog(collection.title, onDismiss = { deleteId = null }, onConfirm = { deleteId = null; onDelete(id) })
         }
+    }
+}
+
+@Composable private fun CreateCollectionButton(onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val dark = colors.background.luminance() < .5f
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if(pressed) .95f else 1f, spring(dampingRatio = .76f, stiffness = 420f), label = "create-collection-press")
+    val shape = RoundedCornerShape(50.dp)
+    FilledTonalButton(onClick, modifier = Modifier.scale(scale).heightIn(min = 48.dp).widthIn(min = 88.dp)
+        .border(1.dp, colors.primary.copy(alpha = .12f), shape).testTag("collections-create"), shape = shape,
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp), interactionSource = interaction,
+        colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.primary.copy(alpha = if(dark) .14f else .10f),
+            contentColor = if(dark) colors.primary else Color(0xFF285DCF))) {
+        Icon(Icons.Rounded.Add, "创建题集", Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("创建", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

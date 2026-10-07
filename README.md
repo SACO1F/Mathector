@@ -1,10 +1,10 @@
 # Mathector Android
 
-高中数学题集 Android 原生工程，最低 Android 8.0。当前交付为 0.18.0，支持用户配置的多模态识别、高中内置与自定义知识库、标签增删、弹性分类按钮、可选自动解题、正文 LaTeX 排版、分类选题、题库／题集／选题统一紧凑卡片、滑动悬浮导航、选题面板下滑收回、无阴影圆角气泡、Apple 风格创建／删除题集弹窗、微透明蓝色添加按钮和加号、固定题集标题与返回入口、统一题集操作按钮、紧凑文档设置、题集列表直接导出，以及识别与接口配置合并卡片。
+高中数学题集 Android 原生工程，最低 Android 8.0。当前交付为 0.19.0，支持用户配置的多模态识别、高中内置与自定义知识库、标签增删、弹性分类按钮、可选自动解题、正文 LaTeX 排版、分类选题、题库／题集／选题统一紧凑卡片、滑动悬浮导航、选题面板下滑收回、无阴影圆角气泡、Apple 风格创建／删除题集弹窗、微透明蓝色添加按钮和加号、固定题集标题与返回入口、统一题集操作按钮、紧凑文档设置、题集列表直接导出，以及识别与接口配置合并卡片。
 
-[公开仓库](https://github.com/SACO1F/Mathector) · [下载 0.18.0 APK](https://github.com/SACO1F/Mathector/releases/download/v0.18.0/Mathector-0.18.0-debug.apk) · [版本说明](https://github.com/SACO1F/Mathector/releases/tag/v0.18.0)
+[公开仓库](https://github.com/SACO1F/Mathector) · [下载 0.19.0 APK](https://github.com/SACO1F/Mathector/releases/download/v0.19.0/Mathector-0.19.0-debug.apk) · [版本说明](https://github.com/SACO1F/Mathector/releases/tag/v0.19.0)
 
-本地安装包位于 artifacts/Mathector-0.18.0-debug.apk。Git 仓库包含源码、Gradle Wrapper、数据库迁移 schema 和测试；本机配置、密钥文件、构建缓存、临时文件与历史验证产物不提交。历史 artifacts 验证记录在开发机保留，当前版本安装包和校验文件通过 GitHub Release 提供。
+本地安装包位于 artifacts/Mathector-0.19.0-debug.apk。Git 仓库包含源码、Gradle Wrapper、数据库迁移 schema 和测试；本机配置、密钥文件、构建缓存、临时文件与历史验证产物不提交。历史 artifacts 验证记录在开发机保留，当前版本安装包和校验文件通过 GitHub Release 提供。
 
 ## 已实现
 
@@ -163,6 +163,16 @@ PDF 和 Word 首页显示居中的试卷主标题，以及考试时间／满分�
 | --- | --- |
 | <img src="docs/screenshots/collection-header-light-0.18.0.png" width="260" alt="白天题集标题和返回按钮固定在顶部"> | <img src="docs/screenshots/collection-header-dark-0.18.0.png" width="260" alt="黑夜题集标题和返回按钮固定在顶部"> |
 
+## 0.19.0 固定题集模块标题与创建入口
+
+题集模块的“我的题集”、副标题和创建入口从卡片列表移到固定顶部区域，位于系统状态栏下方；滚动到列表末尾时三者仍保持原位。题集卡片在下方独立滚动，空状态入口、卡片导出／删除和底部悬浮导航继续保留。
+
+右上角创建入口改为“＋ 创建”圆角胶囊：浅蓝底、细蓝边、蓝色文字和图标、48 dp 触摸高度、轻微按压缩放与弹簧回弹，白天／黑夜分别配色。点击仍打开已有圆角创建窗口，保留名称校验、取消和键盘确认流程。
+
+| 白天滑到底 | 黑夜滑到底 |
+| --- | --- |
+| <img src="docs/screenshots/collections-module-light-0.19.0.png" width="260" alt="白天我的题集标题、副标题和创建入口固定在顶部"> | <img src="docs/screenshots/collections-module-dark-0.19.0.png" width="260" alt="黑夜我的题集标题、副标题和创建入口固定在顶部"> |
+
 ## 配置多模态识别
 
 打开“我的 → 题目识别与接口”，自行填写 HTTPS 地址、API Key 和支持图片输入的模型名，点击“保存接口配置”，再点击“测试图片识别”。测试使用应用内置的数学题图片，会调用所填服务，可能产生服务费用；没有填写配置时不能开始多模态导入。
@@ -297,6 +307,13 @@ APK 位于 app/build/outputs/apk/debug/app-debug.apk。工程不包含真实服�
 - 5 项相关设备测试一次全部通过（95.676 秒）：CollectionGlassTest 的 3 项、CollectionCardTest 的统一卡片／公式／添加／排序操作，以及 CompactWorkspaceTest 的文档设置保存／恢复。新增固定标题检查覆盖长题集名称、白天／黑夜、滚动中与连续划到底、返回按钮位置不变、滚到底后直接返回，继续检查添加按钮固定与安全间距、末尾 PDF／Word 操作完整显示。
 - 收集 19 张自动化界面截图，并额外获取首页截图与 UI 层级，确认指定大标题已移除。逐张核对首页、滚动中和白天／黑夜列表底部四张核心截图：固定标题清晰，题干公式正常，导出与添加入口完整显示。本轮没有重建历史 PDF／DOCX 样张。
 - Mathector-0.18.0-debug.apk 为 24,562,188 字节，APK v2 签名验证通过，与上一版同证书；已在 emulator-5554 覆盖安装并核对 versionCode=18、versionName=0.18.0。数据库仍为版本 4。SHA-256 为 920E7036AC29E71877D135CA34D5E06FCB20EDC75710D905461F9692A0D64739。详情见 [0.18.0 版本记录](docs/releases/0.18.0.md)。
+
+## 0.19.0 验证记录（2026-10-07）
+
+- Debug APK、测试包、30 项单元测试及 Android Lint 构建通过，耗时 1 分 29 秒。单元测试 0 失败，Lint 为 0 错误、20 项既有警告。
+- 本轮 5 项相关设备测试一次全部通过（48.852 秒）：新增题集模块固定顶部专项、已有题集详情固定标题与底部间距、创建名称校验／键盘确认／取消、删除保留题库原题，以及导出格式菜单。专项使用 20 个临时题集，验证白天／黑夜下标题、副标题与创建按钮坐标在连续滚到底后不变，最后卡片避开底部导航，从列表末尾创建并取消不写入，打开题集与返回正常。
+- 收集 17 张白天／黑夜界面截图，逐张核对列表起始、白天／黑夜列表底部与键盘展开的创建窗口四张核心截图。标题、副标题和胶囊按钮清晰，末尾卡片完整可见；创建窗口确认／取消不被键盘遮挡。本轮没有重建历史 PDF／DOCX 样张。
+- APK 为 24,562,188 字节，APK v2 签名验证通过，与上一版同证书；已在 emulator-5554 覆盖安装并核对 versionCode=19、versionName=0.19.0。数据库仍为版本 4。SHA-256 为 4B0E447BF5DC23B5487F99496CD74029FCDAE629889097C7C0CB4B2A23FE8A7E。详情见 [0.19.0 版本记录](docs/releases/0.19.0.md)。
 
 ## 体验流程
 
