@@ -50,8 +50,11 @@ data class ImportJob(@PrimaryKey val id: String = UUID.randomUUID().toString(), 
 @Dao
 interface MathectorDao {
     @Query("SELECT * FROM questions ORDER BY createdAt DESC") fun questions(): Flow<List<Question>>
+    @Query("SELECT * FROM questions ORDER BY createdAt DESC") suspend fun backupQuestions(): List<Question>
     @Query("SELECT * FROM collections ORDER BY createdAt DESC") fun collections(): Flow<List<QuestionCollection>>
+    @Query("SELECT * FROM collections ORDER BY createdAt DESC") suspend fun backupCollections(): List<QuestionCollection>
     @Query("SELECT * FROM collection_items ORDER BY position") fun items(): Flow<List<CollectionItem>>
+    @Query("SELECT * FROM collection_items ORDER BY position") suspend fun backupItems(): List<CollectionItem>
     @Query("SELECT * FROM imports ORDER BY createdAt DESC") fun imports(): Flow<List<ImportJob>>
     @Query("SELECT * FROM imports WHERE id = :id") suspend fun importJob(id: String): ImportJob?
     @Query("SELECT * FROM questions WHERE id = :id") suspend fun question(id: String): Question?

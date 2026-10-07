@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
@@ -96,6 +97,8 @@ fun MathectorApp(model: AppViewModel) {
         val jobs by model.jobs.collectAsStateWithLifecycle()
         val notice by model.notice.collectAsStateWithLifecycle()
         val busy by model.busy.collectAsStateWithLifecycle()
+        val backupProgress by model.backupProgress.collectAsStateWithLifecycle()
+        val pendingBackup by model.pendingBackup.collectAsStateWithLifecycle()
         val solutionJobs by model.solutionJobs.collectAsStateWithLifecycle()
         var tab by rememberSaveable { mutableIntStateOf(0) }
         var editorId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -103,6 +106,7 @@ fun MathectorApp(model: AppViewModel) {
         var showAdd by remember { mutableStateOf(false) }
         var showCamera by remember { mutableStateOf(false) }
         var showNewCollection by remember { mutableStateOf(false) }
+        var showLibraryBackup by rememberSaveable { mutableStateOf(false) }
         var addQuestionId by remember { mutableStateOf<String?>(null) }
         var exportingId by remember { mutableStateOf<String?>(null) }
         val exporting = exportingId != null
@@ -138,6 +142,17 @@ fun MathectorApp(model: AppViewModel) {
         val haze = remember { HazeState() }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(20)) { model.importUris(it) }
         val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { model.importUris(it) }
+        val exportLibrary = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(model::exportLibrary) }
+        val importLibrary = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::inspectLibrary) }
+        val beginLibraryExport = {
+            showLibraryBackup = false
+            val date = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.ROOT).format(java.util.Date())
+            exportLibrary.launch("Mathector题库-$date.zip")
+        }
+        val beginLibraryImport = {
+            showLibraryBackup = false
+            importLibrary.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+        }
         val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) showCamera = true else model.message("相机权限未开启，可使用相册或文件录入") }
         val saveDocument = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val uri = result.data?.data
@@ -179,10 +194,10 @@ fun MathectorApp(model: AppViewModel) {
                                 (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it * direction } + fadeOut(tween(140)))
                         }, label = "main-page-slide") { selectedTab ->
                             when(selectedTab) {
-                                0 -> LibraryScreen(questions, jobs.firstOrNull(), busy, onEdit = { editorId = it.id }, onAdd = { showAdd = true }, onExample = model::examples, onFavorite = model::toggleFavorite, onAddToCollection = { addQuestionId = it }, onRetry = model::retry)
+                                0 -> LibraryScreen(questions, jobs.firstOrNull(), busy, onEdit = { editorId = it.id }, onAdd = { showAdd = true }, onExample = model::examples, onFavorite = model::toggleFavorite, onAddToCollection = { addQuestionId = it }, onRetry = model::retry, onBackup = { showLibraryBackup = true })
                                 1 -> CollectionsScreen(collections, items, exportingId, onOpen = { collectionId = it }, onCreate = { showNewCollection = true }, onDelete = model::deleteCollection,
                                     onExport = { collection, word -> requestExport(CollectionExportRequest(collection, orderedQuestions(collection.id), word, collection.paperSettings())) })
-                                else -> SettingsScreen(questions.size, jobs, settings, model)
+                                else -> SettingsScreen(questions.size, jobs, settings, model, beginLibraryExport, beginLibraryImport)
                             }
                         }
                     }
@@ -218,6 +233,9 @@ fun MathectorApp(model: AppViewModel) {
             }
         }
         if (showNewCollection) CreateCollectionDialog(onDismiss = { showNewCollection = false }) { model.createCollection(it); showNewCollection = false }
+        if(showLibraryBackup) LibraryBackupDialog({ showLibraryBackup = false }, beginLibraryExport, beginLibraryImport)
+        if(backupProgress != null) BackupProgressDialog(backupProgress!!, model::cancelBackup)
+        else pendingBackup?.let { BackupImportDialog(it.summary, model::dismissBackupImport, model::restoreLibrary) }
         pendingExport?.let { request ->
             AlertDialog(onDismissRequest = { pendingExport = null }, title = { Text("还有 ${request.ordered.count { !it.reviewed }} 道题待校对") },
                 text = { Text("请确认公式、数字和图形。继续导出将包含当前草稿。") },
@@ -286,7 +304,7 @@ private fun NavItem(label: String, id: String, icon: ImageVector, selected: Bool
 
 @Composable
 private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Boolean, onEdit: (Question) -> Unit, onAdd: () -> Unit,
-    onExample: () -> Unit, onFavorite: (Question) -> Unit, onAddToCollection: (String) -> Unit, onRetry: (String) -> Unit) {
+    onExample: () -> Unit, onFavorite: (Question) -> Unit, onAddToCollection: (String) -> Unit, onRetry: (String) -> Unit, onBackup: () -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("全部") }
     var grade by rememberSaveable { mutableStateOf("所有年级") }
@@ -298,11 +316,15 @@ private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Bool
     LazyColumn(Modifier.testTag("library-list"), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Blue), contentAlignment = Alignment.Center) { Text("√", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp) }; Spacer(Modifier.width(10.dp)); Text("Mathector", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-            Spacer(Modifier.weight(1f)); Text("数学题集", color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            FilledTonalButton(onClick = onBackup, modifier = Modifier.heightIn(min = 40.dp).testTag("library-backup-open"),
+                shape = RoundedCornerShape(50.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                Icon(Icons.Rounded.ImportExport, null, Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("题库备份", fontSize = 12.sp)
+            }
         } }
         item { Text("收录 · 整理 · 再练一次", color = Muted, fontSize = 14.sp) }
-        item { Row(Modifier.fillMaxWidth().clip(CardShape).background(Brush.linearGradient(listOf(Blue, Color(0xFF4D85EF)))).padding(22.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Stat("${questions.size}", "收录题目"); Stat("${questions.count { !it.reviewed }}", "待校对"); Stat("${questions.count { it.favorite }}", "收藏")
+        item { Row(Modifier.fillMaxWidth().testTag("library-statistics").clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Blue, Color(0xFF4D85EF)))).padding(horizontal = 12.dp, vertical = 12.dp)) {
+            Stat("${questions.size}", "收录题目", "total", Modifier.weight(1f)); Stat("${questions.count { !it.reviewed }}", "待校对", "pending", Modifier.weight(1f)); Stat("${questions.count { it.favorite }}", "收藏", "favorite", Modifier.weight(1f))
         } }
         if (busy || job != null) item { Surface(shape = RoundedCornerShape(40.dp), color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -337,7 +359,14 @@ private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Bool
     }
 }
 
-@Composable private fun Stat(value: String, label: String) { Column { Text(value, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White); Text(label, fontSize = 12.sp, color = Color.White.copy(alpha = .8f)) } }
+@Composable private fun Stat(value: String, label: String, id: String, modifier: Modifier) {
+    Column(modifier.testTag("library-stat-$id"), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value, Modifier.fillMaxWidth().testTag("library-stat-$id-number"), fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold,
+            color = Color.White, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, Modifier.fillMaxWidth().testTag("library-stat-$id-label"), fontSize = 11.sp, lineHeight = 14.sp,
+            color = Color.White.copy(alpha = .85f), textAlign = TextAlign.Center)
+    }
+}
 
 @Composable
 private fun LibraryQuestionMenu(question: Question, onFavorite: () -> Unit, onAdd: () -> Unit) {

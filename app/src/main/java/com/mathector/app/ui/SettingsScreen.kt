@@ -24,7 +24,7 @@ import com.mathector.app.AppViewModel
 import com.mathector.app.data.*
 
 @Composable
-internal fun SettingsScreen(count: Int, jobs: List<ImportJob>, settings: AppSettings, model: AppViewModel) {
+internal fun SettingsScreen(count: Int, jobs: List<ImportJob>, settings: AppSettings, model: AppViewModel, onExportLibrary: () -> Unit, onImportLibrary: () -> Unit) {
     val testing by model.testingApi.collectAsStateWithLifecycle()
     val result by model.apiTestResult.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(22.dp, 20.dp, 22.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -44,6 +44,7 @@ internal fun SettingsScreen(count: Int, jobs: List<ImportJob>, settings: AppSett
                 }
             }
         } }
+        item { LibraryBackupCard(onExportLibrary, onImportLibrary) }
         item { ApiConfiguration(settings, testing, result, model) }
         item { SettingsCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -53,9 +54,9 @@ internal fun SettingsScreen(count: Int, jobs: List<ImportJob>, settings: AppSett
             Text("默认关闭。开启后调用已配置的接口生成答案与步骤，解答需要核对，可能产生额外服务费用。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } }
         item { SettingsCard {
-            Text("Mathector 0.20.0 · 高中数学题集", fontWeight = FontWeight.SemiBold)
+            Text("Mathector 0.21.0 · 高中数学题集", fontWeight = FontWeight.SemiBold)
             Text("识别结果会保存为待校对草稿。PDF 每个文件最多 20 页，单个文件不超过 50 MB。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-            Text("PDF 排版导出 · Word 正文可编辑，公式为图片。卸载前请导出需要保留的题集。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Text("PDF 排版导出 · Word 正文可编辑，公式为图片。卸载前请使用“导出题库”保存完整 ZIP 备份。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         } }
         item { Text("导入记录", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         if (jobs.isEmpty()) item { Text("暂无导入任务", color = MaterialTheme.colorScheme.onSurfaceVariant) }

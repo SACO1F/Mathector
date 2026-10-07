@@ -20,6 +20,10 @@ class AppViewModel(private val application: MathectorApplication) : ViewModel() 
     val jobs = dao.imports().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val notice = MutableStateFlow<String?>(null)
     val busy = MutableStateFlow(false)
+    val backupProgress = MutableStateFlow<String?>(null)
+    val pendingBackup = MutableStateFlow<PreparedLibraryBackup?>(null)
+    private val backupService by lazy { LibraryBackupService(application, application.database, application.knowledge) }
+    private var backupJob: Job? = null
     val settings = application.settings.state
     val testingApi = MutableStateFlow(false)
     val apiTestResult = MutableStateFlow<String?>(null)
@@ -64,6 +68,39 @@ class AppViewModel(private val application: MathectorApplication) : ViewModel() 
     }
     fun clearNotice() { notice.value = null }
     fun message(text: String) { notice.value = text }
+    private fun backupTask(progress: String, action: suspend () -> Unit) {
+        if(backupProgress.value != null) return
+        backupProgress.value = progress
+        backupJob = viewModelScope.launch {
+            try { action() }
+            catch(cancel: CancellationException) { message("题库备份操作已取消") }
+            catch(error: Exception) { message(error.message ?: "题库备份操作失败，请重试") }
+            finally { backupProgress.value = null }
+        }
+    }
+    fun exportLibrary(uri: Uri) = backupTask("正在打包并保存题库…") {
+        val summary = backupService.exportTo(uri)
+        message("已备份 ${summary.questions} 道题、${summary.collections} 个题集" +
+            if(summary.missingImages > 0) "；${summary.missingImages} 道题的原图已缺失，题干已保留" else "，请保留这份 ZIP 文件")
+    }
+    fun inspectLibrary(uri: Uri) = backupTask("正在检查题库备份与原图…") {
+        pendingBackup.value?.close()
+        pendingBackup.value = null
+        pendingBackup.value = backupService.prepare(uri)
+    }
+    fun cancelBackup() { backupJob?.cancel() }
+    fun dismissBackupImport() { pendingBackup.value?.close(); pendingBackup.value = null }
+    fun restoreLibrary() {
+        val pending = pendingBackup.value ?: return
+        backupTask("正在恢复题目、原图和题集…") {
+            try {
+                val result = backupService.restore(pending)
+                message("已导入 ${result.questions} 道题、${result.collections} 个题集" +
+                    if(result.skippedQuestions + result.skippedCollections > 0) "，跳过 ${result.skippedQuestions} 道已有题目、${result.skippedCollections} 个已有题集" else "")
+            } finally { if(pendingBackup.value === pending) pendingBackup.value = null; pending.close() }
+        }
+    }
+    override fun onCleared() { pendingBackup.value?.close(); super.onCleared() }
     fun save(question: Question, done: () -> Unit) = viewModelScope.launch { persistEdit(question); done() }
     private suspend fun persistEdit(question: Question, scheduleAuto: Boolean = true): Question {
         var previous: Question? = null
