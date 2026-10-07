@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,7 +75,7 @@ import com.mathector.app.data.*
                 val points = KnowledgeCatalog.decode(question.knowledge)
                 if(points.isEmpty()) MetadataTag("未标注知识点", neutral, Modifier.testTag("$tagPrefix-knowledge-${question.id}-unset"))
                 else points.forEach { point -> MetadataTag(point, knowledgeColor, Modifier.testTag("$tagPrefix-knowledge-${question.id}-$point")) }
-                if(!question.reviewed) MetadataTag("待校对", neutral)
+                QuestionReviewBadge(question.reviewed, Modifier.testTag("$tagPrefix-review-${question.id}"))
                 extraLabels.forEach { label -> MetadataTag(label, neutral) }
             }
             if(selected != null) {
@@ -89,6 +91,17 @@ import com.mathector.app.data.*
         else Text(title, titleModifier, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 16.sp)
         RichMathText(MathContent.preview(question).ifBlank { "题干待补充" }, Modifier.fillMaxWidth().testTag("$tagPrefix-math-${question.id}"), dark, preview = true, fontSize = 13f)
     }
+}
+
+@Composable internal fun QuestionReviewBadge(reviewed: Boolean, modifier: Modifier = Modifier) {
+    val dark = MaterialTheme.colorScheme.background.luminance() < .5f
+    val label = if(reviewed) "已校对" else "待校对"
+    val tint = if(reviewed) {
+        if(dark) Color(0xFF8ED8B6) else Color(0xFF1D7652)
+    } else {
+        if(dark) Color(0xFFFFC78C) else Color(0xFF986015)
+    }
+    MetadataTag(label, tint, modifier.semantics { contentDescription = "校对状态：$label" })
 }
 
 @Composable private fun MetadataTag(value: String, tint: Color, modifier: Modifier = Modifier) {

@@ -53,17 +53,18 @@ class RichMathTest {
         try {
             compose.onNodeWithTag("library-list").performScrollToNode(hasText(q.title))
             compose.waitUntil(10_000) { rendered("题干显示验证", 3) }
-            snapshot("library-list", "latex-library-0.5.0.png")
+            snapshot("library-list", "latex-library-0.20.0.png")
             // A tap over the WebView preview must open the card.
             compose.onNodeWithTag("library-math-${q.id}", useUnmergedTree = true).performTouchInput { click(center) }
             compose.onNodeWithTag("question-editor").assertExists()
             compose.onNodeWithTag("question-editor").performScrollToNode(hasTestTag("question-preview"))
             compose.waitUntil(10_000) { rendered("题干显示验证", 3) }
-            compose.runOnUiThread { assertTrue("Independent formula must not be appended or shown separately", views(compose.activity.window.decorView).none { (it.tag as? String)?.contains("z^2=999") == true }) }
-            snapshot("question-editor", "preview-editor-0.5.0.png")
+            compose.onNodeWithTag("question-preview").assertContentDescriptionEquals(MathContent.preview(q))
+            assertFalse("The exercise preview never includes the proofreading field", MathContent.preview(q).contains("z^2=999"))
+            snapshot("question-editor", "preview-editor-0.20.0.png")
             compose.onNodeWithTag("question-editor").performScrollToNode(hasTestTag("solution-result"))
             compose.waitUntil(10_000) { rendered("答案显示验证", 3) }
-            snapshot("question-editor", "latex-solution-0.5.0.png")
+            snapshot("question-editor", "latex-solution-0.20.0.png")
             androidx.test.espresso.Espresso.pressBack()
         } finally { runBlocking { app.database.dao().deleteQuestion(q.id) } }
     }

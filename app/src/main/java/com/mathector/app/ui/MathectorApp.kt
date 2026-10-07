@@ -160,7 +160,7 @@ fun MathectorApp(model: AppViewModel) {
                         editorId != null -> key(editorId) {
                             val q = questions.firstOrNull { it.id == editorId } ?: Question(id = editorId!!)
                             QuestionEditor(q, dark, solutionJobs[q.id], onGenerate = model::requestSolution, onCancel = { model.cancelSolution(q.id) },
-                                onBack = { editorId = null }, onSave = { model.save(it) { editorId = null; model.message("题目已确认保存") } },
+                                onBack = { editorId = null }, onSave = { model.save(it) { editorId = null; model.message("题目已保存并标记为已校对") } },
                                 onDraft = { model.save(it) {} }, onDelete = { model.delete(q.id) { editorId = null } }, onAdd = { model.save(it) { addQuestionId = it.id } })
                         }
                         collectionId != null -> {
@@ -291,7 +291,7 @@ private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Bool
     var filter by rememberSaveable { mutableStateOf("全部") }
     var grade by rememberSaveable { mutableStateOf("所有年级") }
     val filtered = questions.filter { q ->
-        (filter == "全部" || filter == "待校对" && !q.reviewed || filter == "收藏" && q.favorite || filter in KnowledgeCatalog.decode(q.knowledge)) &&
+        (filter == "全部" || filter == "待校对" && !q.reviewed || filter == "已校对" && q.reviewed || filter == "收藏" && q.favorite || filter in KnowledgeCatalog.decode(q.knowledge)) &&
         (grade == "所有年级" || grade == q.grade) &&
         (search.isBlank() || listOf(q.title, q.body, q.latex, q.knowledge, q.grade).any { it.contains(search, true) })
     }
@@ -312,7 +312,7 @@ private fun LibraryScreen(questions: List<Question>, job: ImportJob?, busy: Bool
             }
         } }
         item { OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), placeholder = { Text("搜索题目、公式或知识点") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = .4f), unfocusedContainerColor = MaterialTheme.colorScheme.surface, focusedContainerColor = MaterialTheme.colorScheme.surface)) }
-        item { LazyRow(Modifier.testTag("library-filter-list"), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(listOf("全部", "待校对", "收藏") + questions.flatMap { KnowledgeCatalog.decode(it.knowledge) }.distinct()) { label -> AnimatedTag(label, filter == label, { filter = label }, Modifier.testTag("library-filter-$label"), showIndicator = false) } } }
+        item { LazyRow(Modifier.testTag("library-filter-list"), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(listOf("全部", "待校对", "已校对", "收藏") + questions.flatMap { KnowledgeCatalog.decode(it.knowledge) }.distinct()) { label -> AnimatedTag(label, filter == label, { filter = label }, Modifier.testTag("library-filter-$label"), showIndicator = false) } } }
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(if(search.isBlank()) "我的题库" else "搜索结果", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Spacer(Modifier.weight(1f)); var expanded by remember { mutableStateOf(false) }
@@ -528,42 +528,67 @@ private fun QuestionEditor(question: Question, dark: Boolean, solutionState: and
     var confirmDelete by remember { mutableStateOf(false) }
     var showOriginal by remember { mutableStateOf(true) }
     var autoSolve by rememberSaveable(question.id) { mutableStateOf(question.autoSolve) }
-    val draft = QuestionText.normalize(question.copy(title = title.ifBlank { "新题目" }, body = body, latex = latex, grade = grade, kind = kind, knowledge = knowledge, difficulty = difficulty, autoSolve = autoSolve))
-    val leave = { if(draft != question && (body.isNotBlank() || latex.isNotBlank())) onDraft(draft.copy(reviewed = false)); onBack() }
+    val draft = QuestionReview.edited(question, QuestionText.normalize(question.copy(title = title.ifBlank { "新题目" }, body = body, latex = latex, grade = grade, kind = kind, knowledge = knowledge, difficulty = difficulty, autoSolve = autoSolve)))
+    val leave = { if(draft != question && (body.isNotBlank() || latex.isNotBlank())) onDraft(draft); onBack() }
     BackHandler(onBack = leave)
     LaunchedEffect(title, body, latex, grade, kind, knowledge, difficulty, autoSolve) {
-        if(draft != question && (body.isNotBlank() || latex.isNotBlank())) { delay(650); onDraft(draft.copy(reviewed = false)) }
+        if(draft != question && (body.isNotBlank() || latex.isNotBlank())) { delay(650); onDraft(draft) }
     }
-    LazyColumn(Modifier.imePadding().testTag("question-editor"), contentPadding = PaddingValues(22.dp, 12.dp, 22.dp, 52.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { PageHeader(if(question.reviewed) "编辑题目" else "校对与录入", leave) }
-        if(question.sourcePath.isNotBlank()) item { Surface(shape = CardShape, color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Text("原始来源", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); TextButton(onClick = { showOriginal = !showOriginal }) { Text(if(showOriginal) "收起" else "展开") } }
-                if(showOriginal) AsyncImage(model = File(question.sourcePath), contentDescription = "原题图像，校对时保留公式与图形", modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp))
-                Text(question.sourceLabel, fontSize = 11.sp, color = Muted)
+    Column(Modifier.fillMaxSize().imePadding().testTag("question-editor-screen")) {
+        Surface(Modifier.fillMaxWidth().testTag("question-editor-header"), color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onSurface) {
+            Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                PageHeader(if(question.reviewed) "编辑题目" else "校对与录入", leave, Modifier.testTag("question-editor-title"))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        QuestionReviewBadge(draft.reviewed, Modifier.testTag("question-editor-review"))
+                        Text(if(draft.reviewed) "修改题干或分类后需重新校对" else "确认后标记已校对",
+                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = { onSave(QuestionReview.confirmed(draft)) }, enabled = body.isNotBlank(),
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("question-editor-confirm"), shape = RoundedCornerShape(50.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
+                        Text(if(draft.reviewed) "保存校对" else "确认校对", fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
-        } }
-        item { Text("请对照原图校对识别结果与分类。你的修改会自动保存为草稿。", color = Muted, fontSize = 12.sp) }
-        item { OutlinedTextField(title, { title = it }, label = { Text("题目标题") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) }
-        item { OutlinedTextField(body, { body = it }, label = { Text("题干与子题") }, supportingText = { Text("多个小题各占一行，可用（1）（2）标记；保存时按顺序整理。") }, modifier = Modifier.fillMaxWidth(), minLines = 5, shape = RoundedCornerShape(16.dp)) }
-        if(body.isNotBlank() || latex.isNotBlank()) item { Surface(shape = CardShape, color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("题目预览", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                RichMathText(MathContent.preview(draft), Modifier.fillMaxWidth().testTag("question-preview"), dark)
-            }
-        } }
-        item { OutlinedTextField(latex, { latex = it }, label = { Text("独立公式 · LaTeX（可选）") }, supportingText = { Text("例如：\\frac{1}{2} 或 x^2+2x+1") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("分数" to "\\frac{a}{b}", "根号" to "\\sqrt{x}", "平方" to "x^{2}").forEach { (label, value) -> OutlinedButton(onClick = { latex += value }) { Text(label) } }
-        } }
-        item { Text("分类建议 · 可手动调整", fontWeight = FontWeight.SemiBold); TextButton(onClick = { val suggestion = Classification.suggest(body); grade = suggestion.grade; kind = suggestion.kind; knowledge = suggestion.knowledge }) { Text("根据题干重新建议") } }
-        item { ClassificationChoice("年级", grade, KnowledgeCatalog.grades, segmented = true) { grade = it } }
-        item { ClassificationChoice("题型", kind, KnowledgeCatalog.kinds) { kind = it } }
-        item { ClassificationChoice("难度", difficulty, KnowledgeCatalog.difficulties, segmented = true) { difficulty = it } }
-        item { KnowledgeTags(knowledge) { knowledge = it } }
-        item { SolutionPanel(draft, autoSolve, { autoSolve = it; if(!it) onCancel() }, solutionState, dark, onGenerate = { onGenerate(draft) }, onCancel = onCancel) }
-        item { Button(onClick = { onSave(draft.copy(reviewed = true)) }, enabled = body.isNotBlank() || latex.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) { Text("确认并保存题目") } }
-        item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { TextButton(onClick = { onAdd(draft) }, enabled = body.isNotBlank()) { Text("加入题集") }; TextButton(onClick = { confirmDelete = true }) { Text("删除题目", color = MaterialTheme.colorScheme.error) } } }
+        }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("question-editor"), contentPadding = PaddingValues(22.dp, 8.dp, 22.dp, 52.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if(question.sourcePath.isNotBlank()) item { Surface(shape = CardShape, color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Text("原始来源", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); TextButton(onClick = { showOriginal = !showOriginal }) { Text(if(showOriginal) "收起" else "展开") } }
+                    if(showOriginal) AsyncImage(model = File(question.sourcePath), contentDescription = "原题图像，校对时保留公式与图形", modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp))
+                    Text(question.sourceLabel, fontSize = 11.sp, color = Muted)
+                }
+            } }
+            item { Text("请对照原图校对识别结果与分类。你的修改会自动保存为草稿。", color = Muted, fontSize = 12.sp) }
+            item { OutlinedTextField(title, { title = it }, label = { Text("题目标题") }, modifier = Modifier.fillMaxWidth().testTag("question-title-input"), shape = RoundedCornerShape(16.dp)) }
+            item { OutlinedTextField(body, { body = it }, label = { Text("题干与子题") }, supportingText = { Text("多个小题各占一行，可用（1）（2）标记；公式用 \\(…\\) 或 \\[…\\] 写入题干。") }, modifier = Modifier.fillMaxWidth().testTag("question-body-input"), minLines = 5, shape = RoundedCornerShape(16.dp)) }
+            if(body.isNotBlank()) item { Surface(shape = CardShape, color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("题目预览", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                    RichMathText(MathContent.preview(draft), Modifier.fillMaxWidth().testTag("question-preview"), dark)
+                }
+            } }
+            item { OutlinedTextField(latex, { latex = it }, label = { Text("独立公式 · LaTeX（可选）") }, supportingText = { Text("仅用于题干公式校对，不参与练习导出。需要导出的公式请写入题干。") }, modifier = Modifier.fillMaxWidth().testTag("question-formula-input"), shape = RoundedCornerShape(16.dp)) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("分数" to "\\frac{a}{b}", "根号" to "\\sqrt{x}", "平方" to "x^{2}").forEach { (label, value) -> OutlinedButton(onClick = { latex += value }) { Text(label) } }
+            } }
+            if(latex.isNotBlank()) item { Surface(Modifier.testTag("proofreading-formula-panel"), shape = CardShape, color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("公式校对预览 · 不参与导出", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                    RichMathText(MathContent.proofreadingFormula(latex), Modifier.fillMaxWidth().testTag("proofreading-formula-preview"), dark)
+                }
+            } }
+            item { Text("分类建议 · 可手动调整", fontWeight = FontWeight.SemiBold); TextButton(onClick = { val suggestion = Classification.suggest(body); grade = suggestion.grade; kind = suggestion.kind; knowledge = suggestion.knowledge }) { Text("根据题干重新建议") } }
+            item { ClassificationChoice("年级", grade, KnowledgeCatalog.grades, segmented = true) { grade = it } }
+            item { ClassificationChoice("题型", kind, KnowledgeCatalog.kinds) { kind = it } }
+            item { ClassificationChoice("难度", difficulty, KnowledgeCatalog.difficulties, segmented = true) { difficulty = it } }
+            item { KnowledgeTags(knowledge) { knowledge = it } }
+            item { SolutionPanel(draft, autoSolve, { autoSolve = it; if(!it) onCancel() }, solutionState, dark, onGenerate = { onGenerate(draft) }, onCancel = onCancel) }
+            item { Button(onClick = { onSave(QuestionReview.confirmed(draft)) }, enabled = body.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) { Text("确认并保存题目") } }
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { TextButton(onClick = { onAdd(draft) }, enabled = body.isNotBlank()) { Text("加入题集") }; TextButton(onClick = { confirmDelete = true }) { Text("删除题目", color = MaterialTheme.colorScheme.error) } } }
+        }
     }
     if(confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("删除这道题？") }, text = { Text("题目会从题库和相关题集中移除。") }, confirmButton = { TextButton(onClick = onDelete) { Text("删除") } }, dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } })
 }

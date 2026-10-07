@@ -11,13 +11,21 @@ class MathContentTest {
         assertEquals(body, MathContent.question(q))
         assertEquals(MathContent.preview(q), MathContent.question(q))
         assertEquals(1, MathContent.parse(MathContent.question(q)).filterIsInstance<MathPart.Formula>().size)
-        assertEquals("\\[x^2=3\\]", MathContent.question(Question(latex = "x^2=3")))
+        assertEquals("", MathContent.question(Question(latex = "x^2=3")))
     }
     @Test fun previewsKeepInlineMathWithoutAppendingTheIndependentFormula() {
         val q = Question(body = "已知 \\(f(x)=x^2-4x+3\\)，求最小值。", latex = "f(x)=(x-2)^2-1")
         assertEquals(q.body, MathContent.preview(q))
         assertFalse(MathContent.preview(q).contains("(x-2)"))
-        assertEquals("\\[x^2=3\\]", MathContent.preview(Question(latex = "x^2=3")))
+        assertEquals("", MathContent.preview(Question(latex = "x^2=3")))
+    }
+    @Test fun standalonePreviewAcceptsRawAndDelimitedLatexWithoutDoubleWrapping() {
+        assertEquals("", MathContent.proofreadingFormula("  "))
+        assertEquals("\\[\\frac{1}{2}\\]", MathContent.proofreadingFormula(" \\frac{1}{2} "))
+        listOf("\\[x^2=3\\]", "\\(x^2=3\\)", "$" + "x^2=3$", "$$" + "x^2=3$$").forEach {
+            assertEquals(it, MathContent.proofreadingFormula(it))
+            assertEquals(1, MathContent.parse(MathContent.proofreadingFormula(it)).filterIsInstance<MathPart.Formula>().size)
+        }
     }
     @Test fun numberingCleanupKeepsValuesOptionsAndSubquestionLines() {
         val input = "12. 已知函数。\n（1）求最值。\n(2) 求定义域。\n③证明结论。\n0.5 是系数。\n(0,1) 是区间。\nA. 1.25\nB. 2"

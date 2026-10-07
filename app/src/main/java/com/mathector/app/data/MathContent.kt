@@ -110,10 +110,13 @@ object MathContent {
         val represented = parse(text).filterIsInstance<MathPart.Formula>().any { canonical(it.latex).contains(formula) }
         return if(represented) text else text.trimEnd() + "\n\\[" + latex.trim() + "\\]"
     }
-    // The body is authoritative in both previews and exports. Never append the separate formula field.
-    // A formula-only record can still display and export its only content.
-    fun question(question: Question): String = QuestionText.clean(question.body).ifBlank {
-        question.latex.takeIf(String::isNotBlank)?.let { "\\[$it\\]" }.orEmpty()
-    }
+    // Independent LaTeX is a proofreading aid, never exercise content, even for a blank body.
+    fun question(question: Question): String = QuestionText.clean(question.body)
     fun preview(question: Question): String = question(question)
+
+    fun proofreadingFormula(value: String): String {
+        val source = value.trim()
+        if(source.isEmpty()) return ""
+        return if(source.startsWith("\\[") || source.startsWith("\\(") || source.startsWith('$')) source else "\\[$source\\]"
+    }
 }

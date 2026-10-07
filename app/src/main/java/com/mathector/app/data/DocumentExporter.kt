@@ -23,6 +23,7 @@ object DocumentExporter {
     }
     suspend fun export(context: Context, title: String, questions: List<Question>, word: Boolean, paperSettings: PaperSettings = PaperSettings()): File {
         require(questions.isNotEmpty()) { "请先加入至少一道题" }
+        require(questions.all { MathContent.question(it).isNotBlank() }) { "有题目尚未填写题干，请先补充；独立公式仅用于校对，不参与导出" }
         val paper = paperSettings.validated()
         val content = questions.mapIndexed { index, question ->
             val body = MathContent.question(question)
